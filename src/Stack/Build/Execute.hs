@@ -943,6 +943,7 @@ singleBuild :: M env m
             -> m ()
 singleBuild runInBase ac@ActionContext {..} ee@ExecuteEnv {..} task@Task {..} installedMap isFinalBuild = do
     (allDepsMap, cache) <- getConfigCache ee task installedMap enableTests enableBenchmarks
+    $logDebug $ T.pack (show cache)
     mprecompiled <- getPrecompiled cache
     minstalled <-
         case mprecompiled of
