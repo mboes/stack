@@ -81,6 +81,7 @@ import           Stack.PackageDump
 import           Stack.Types
 import           Stack.Types.Internal
 import           Stack.Types.StackT
+import           System.Console.Regions
 import qualified System.Directory as D
 import           System.Environment (getExecutablePath)
 import           System.Exit (ExitCode (ExitSuccess))
@@ -95,7 +96,7 @@ import           System.Process.Run
 import           System.Process.Internals (createProcess_)
 #endif
 
-type M env m = (MonadIO m,MonadReader env m,HasHttpManager env,HasBuildConfig env,MonadLogger m,MonadBaseControl IO m,MonadMask m,HasLogLevel env,HasEnvConfig env,HasTerminal env, HasConfig env)
+type M env m = (MonadIO m,MonadReader env m,HasHttpManager env,HasBuildConfig env,MonadLogger m,MonadBaseControl IO m,MonadMask m,HasLogLevel env,HasEnvConfig env,HasTerminal env, HasConfig env, LiftRegion m)
 
 -- | Fetch the packages necessary for a build, for example in combination with a dry run.
 preFetch :: M env m => Plan -> m ()
@@ -526,22 +527,23 @@ executePlan' installedMap0 targets plan ee@ExecuteEnv {..} = do
                 then concurrentTests
                 else True
     terminal <- asks getTerminal
-    errs <- liftIO $ runActions threads keepGoing concurrentFinal actions $ \doneVar -> do
-        let total = length actions
-            loop prev
-                | prev == total =
-                    runInBase $ $logStickyDone ("Completed " <> T.pack (show total) <> " action(s).")
-                | otherwise = do
-                    when terminal $ runInBase $
-                        $logSticky ("Progress: " <> T.pack (show prev) <> "/" <> T.pack (show total))
+    errs <- liftIO $ displayConsoleRegions $ runActions threads keepGoing concurrentFinal actions $ \doneVar -> do
+        withConsoleRegion Linear $ \r -> do
+          let total = length actions
+              loop prev
+                  | prev == total =
+                    finishConsoleRegion r ("Completed " <> show total <> " action(s).")
+                  | otherwise = do
+                    when terminal $ do
+                      setConsoleRegion r ("Progress: " <> show prev <> "/" <> show total)
                     done <- atomically $ do
                         done <- readTVar doneVar
                         check $ done /= prev
                         return done
                     loop done
-        if total > 1
-            then loop 0
-            else return ()
+          if total > 1
+              then loop 0
+              else return ()
     when (toCoverage $ boptsTestOpts eeBuildOpts) $ do
         generateHpcUnifiedReport
         generateHpcMarkupIndex
@@ -727,12 +729,16 @@ ensureConfig newConfigCache pkgDir ExecuteEnv {..} announce cabal cabalfp = do
 
     return needConfig
 
-announceTask :: MonadLogger m => Task -> Text -> m ()
-announceTask task x = $logInfo $ T.concat
-    [ T.pack $ packageIdentifierString $ taskProvides task
-    , ": "
-    , x
-    ]
+announceTask :: LiftRegion m => ConsoleRegion -> Task -> Text -> m ()
+announceTask r task x = setConsoleRegion r $ T.concat
+      [ T.pack $ packageIdentifierString $ taskProvides task
+      , ": "
+      , x
+      ]
+
+finishTask :: LiftRegion m => ConsoleRegion -> Task -> m ()
+finishTask r task = finishConsoleRegion r $ T.concat
+      [T.pack $ packageIdentifierString $ taskProvides task, ": done"]
 
 withSingleContext :: M env m
                   => (m () -> IO ())
@@ -757,10 +763,12 @@ withSingleContext runInBase ActionContext {..} ExecuteEnv {..} task@Task {..} md
     withPackage $ \package cabalfp pkgDir ->
     withLogFile package $ \mlogFile ->
     withCabal package pkgDir mlogFile $ \cabal ->
-    inner0 package cabalfp pkgDir cabal announce console mlogFile
+    withConsoleRegion Linear $ \r -> do
+      let announce = announceTask r task
+      result <- inner0 package cabalfp pkgDir cabal announce console mlogFile
+      finishTask r task
+      return result
   where
-    announce = announceTask task
-
     wanted =
         case taskType of
             TTLocal lp -> lpWanted lp
@@ -1015,7 +1023,8 @@ singleBuild runInBase ac@ActionContext {..} ee@ExecuteEnv {..} task@Task {..} in
 
     copyPreCompiled (PrecompiledCache mlib exes) = do
         wc <- getWhichCompiler
-        announceTask task "using precompiled package"
+        withConsoleRegion Linear $ \r ->
+          announceTask r task "using precompiled package"
         forM_ mlib $ \libpath -> do
             menv <- getMinimalEnvOverride
             withMVar eeInstallLock $ \() -> do

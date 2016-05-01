@@ -57,6 +57,7 @@ import           Stack.Constants
 import           Stack.Package
 import           Stack.Types
 import           Stack.Types.Internal
+import           System.Console.Regions (LiftRegion)
 import           System.Directory (getModificationTime, getPermissions)
 import qualified System.FilePath as FP
 
@@ -74,7 +75,7 @@ instance Show CheckException where
     "Package check reported the following errors:\n" ++
     (intercalate "\n" . fmap show . NE.toList $ xs)
 
-type M env m = (MonadIO m,MonadReader env m,HasHttpManager env,MonadLogger m,MonadBaseControl IO m,MonadMask m,HasLogLevel env,HasEnvConfig env,HasTerminal env)
+type M env m = (MonadIO m,MonadReader env m,HasHttpManager env,MonadLogger m,MonadBaseControl IO m,MonadMask m,HasLogLevel env,HasEnvConfig env,HasTerminal env,LiftRegion m)
 
 -- | Given the path to a local package, creates its source
 -- distribution tarball.

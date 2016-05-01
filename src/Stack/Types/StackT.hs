@@ -52,6 +52,7 @@ import           Network.HTTP.Conduit
 import           Prelude -- Fix AMP warning
 import           Stack.Types.Internal
 import           Stack.Types.Config (GlobalOpts (..))
+import           System.Console.Regions (LiftRegion(..))
 import           System.IO
 import           System.Log.FastLogger
 
@@ -88,6 +89,9 @@ instance (MonadIO m) => MonadLogger (StackT config m) where
 
 instance MonadIO m => MonadLoggerIO (StackT config m) where
     askLoggerIO = getStickyLoggerFunc
+
+instance MonadIO m => LiftRegion (StackT config m) where
+  liftRegion = liftIO . liftRegion
 
 -- | Run a Stack action, using global options.
 runStackTGlobal :: (MonadIO m)

@@ -59,6 +59,7 @@ import           Stack.Exec
 import           Stack.Package
 import           Stack.Types
 import           Stack.Types.Internal
+import           System.Console.Regions (LiftRegion)
 import           System.FilePath (takeBaseName)
 import           Text.Read (readMaybe)
 
@@ -111,7 +112,7 @@ instance Show GhciException where
 -- given options and configure it with the load paths and extensions
 -- of those targets.
 ghci
-    :: (HasBuildConfig r, HasHttpManager r, MonadMask m, HasLogLevel r, HasTerminal r, HasEnvConfig r, MonadReader r m, MonadIO m, MonadLoggerIO m, MonadBaseUnlift IO m)
+    :: (HasBuildConfig r, HasHttpManager r, MonadMask m, HasLogLevel r, HasTerminal r, HasEnvConfig r, MonadReader r m, MonadIO m, MonadLoggerIO m, MonadBaseUnlift IO m,LiftRegion m)
     => GhciOpts -> m ()
 ghci opts@GhciOpts{..} = do
     bopts <- asks (configBuild . getConfig)
@@ -276,7 +277,7 @@ figureOutMainFile bopts mainIsTargets targets0 packages =
 -- | Create a list of infos for each target containing necessary
 -- information to load that package/components.
 ghciSetup
-    :: (HasHttpManager r, HasBuildConfig r, MonadMask m, HasTerminal r, HasLogLevel r, HasEnvConfig r, MonadReader r m, MonadIO m, MonadLoggerIO m, MonadBaseUnlift IO m)
+    :: (HasHttpManager r, HasBuildConfig r, MonadMask m, HasTerminal r, HasLogLevel r, HasEnvConfig r, MonadReader r m, MonadIO m, MonadLoggerIO m, MonadBaseUnlift IO m,LiftRegion m)
     => GhciOpts
     -> m (Map PackageName SimpleTarget, Maybe (Map PackageName SimpleTarget), [GhciPkgInfo])
 ghciSetup GhciOpts{..} = do

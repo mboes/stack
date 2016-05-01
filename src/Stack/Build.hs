@@ -62,6 +62,7 @@ import           Stack.GhcPkg
 import           Stack.Package
 import           Stack.Types
 import           Stack.Types.Internal
+import           System.Console.Regions (LiftRegion)
 import           System.FileLock (FileLock, unlockFile)
 
 #ifdef WINDOWS
@@ -69,7 +70,7 @@ import           System.Win32.Console (setConsoleCP, setConsoleOutputCP, getCons
 import qualified Control.Monad.Catch as Catch
 #endif
 
-type M env m = (MonadIO m,MonadReader env m,HasHttpManager env,HasBuildConfig env,MonadLoggerIO m,MonadBaseUnlift IO m,MonadMask m,HasLogLevel env,HasEnvConfig env,HasTerminal env)
+type M env m = (MonadIO m,MonadReader env m,HasHttpManager env,HasBuildConfig env,MonadLoggerIO m,MonadBaseUnlift IO m,MonadMask m,HasLogLevel env,HasEnvConfig env,HasTerminal env,LiftRegion m)
 
 -- | Build.
 --
